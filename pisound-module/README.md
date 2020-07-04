@@ -5,6 +5,7 @@ Kernel 4.4.154
 Download image and follow the base steps below 
 (also work with radxa linux image latest (4.4.154-110 atm))
 	Essential Steps - Starting point for build kernel modules after reboot:
+	
 		-------------------------------------------------
 
 		https://wiki.radxa.com/Rockpi4/radxa-apt
