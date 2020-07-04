@@ -137,6 +137,53 @@ def get_ctl_version():
     out = subprocess.check_output(['pisound-ctl', '--version'])
     return str(out.decode("utf-8")).split(' ')[4].strip(',')
 
+def is_running_on_rpi4():
+    try:
+        ec = subprocess.call(['grep', '-q', 'Raspberry Pi 4', '/proc/cpuinfo'])
+        return ec == 0
+    except:
+        return False
+
+def get_rpi4_bootloader_update_recommendation():
+    if not is_running_on_rpi4():
+        return "Not running on RPi4 at the moment, cannot evaluate."
+    try:
+        cmd = subprocess.Popen(['vcgencmd', 'bootloader_version'], stdout=subprocess.PIPE)
+        if cmd.stdout.readlines()[2].split(' ')[1].strip() < '1568112110':
+            return 'Yes (See https://www.raspberrypi.org/documentation/hardware/raspberrypi/booteeprom.md)'
+        else:
+            return 'No'
+    except:
+        return "Unknown error occurred, cannot evaluate."
+
+def is_rpi4_workaround_enabled():
+    try:
+        ec = subprocess.call(['grep', '-q', 'sdhci.debug_quirks2=4', '/boot/cmdline.txt'])
+        return ec == 0
+    except:
+        return False
+
+def set_rpi4_workaround_enabled(enabled):
+    try:
+        if enabled:
+            if not is_rpi4_workaround_enabled():
+                subprocess.call(['sed', 's/.*/& sdhci.debug_quirks2=4/', '/boot/cmdline.txt', '-i'])
+        else:
+            if is_rpi4_workaround_enabled():
+                subprocess.call(['sed', 's/ sdhci.debug_quirks2=4//', '/boot/cmdline.txt', '-i'])
+    except:
+        return
+
+def get_hw_version():
+    try:
+        with open('/sys/kernel/pisound/hw_version', mode='rt') as f:
+            return f.read().strip('\n\0')
+    except:
+        return '1.0';
+
+def is_rpi4_compatible():
+    return get_hw_version() != '1.0'
+
 def get_ip():
     out = subprocess.check_output(['hostname', '-I'])
     return str(out.decode("utf-8")).strip()
@@ -147,41 +194,3 @@ def get_hostname():
 
 def get_script_path(file):
     return settings.CFG_SCRIPTS_DIR + file
-
-def get_cards():
-    cards = []
-    with open('/proc/asound/cards', 'r') as f:
-        for line in f:
-            if ']:' in line:
-                card_id = line.split('[')[0].strip()
-                card_name = line.split(':')[1].split('-')[0].strip()
-                cards.append({'key': card_id, 'title': card_name})
-    return cards
-
-def get_active_card():
-    if not isfile(expanduser('~' + environ['SUDO_USER']) + '/.asoundrc'):
-        with open(expanduser('~' + environ['SUDO_USER']) + '/.asoundrc', 'w') as f:
-            f.write('pcm.!default {\n\ttype hw\n\tcard 0\n}\n\nctl.!default {\n\ttype hw\n\tcard 0\n}\n')
-
-    active_card = {}
-    with open(expanduser('~' + environ['SUDO_USER']) + '/.asoundrc', 'r') as f:
-        for line in f:
-            if 'card' in line:
-                active_card['key'] = line.split(' ')[1].strip()
-                break
-
-    for card in get_cards():
-        if card['key'] == active_card['key']:
-            active_card['title'] = card['title']
-            break
-    
-    return(active_card)
-
-def set_active_card(card):
-    with open(expanduser('~' + environ['SUDO_USER']) + '/.asoundrc', 'r') as f:
-        data = f.readlines()
-        for i, line in enumerate(data):
-            if str(card['current']) in line:
-                data[i] = data[i].replace(str(card['current']), str(card['key']))
-    with open(expanduser('~' + environ['SUDO_USER']) + '/.asoundrc', 'w') as f:
-        f.writelines(data)

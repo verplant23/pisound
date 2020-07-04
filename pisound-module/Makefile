@@ -16,31 +16,52 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 #
 
-KERNELRELEASE ?= `uname -r`
-KERNEL_DIR ?= /lib/modules/$(KERNELRELEASE)/build
-PWD := $(shell pwd)
-
 ifeq ($(DEBUG), yes)
 	ccflags-y += -DDEBUG
 else
 	ccflags-y += -DNDEBUG
 endif
 
-obj-m := snd_soc_pisound.o
-snd_soc_pisound-y := pisound.o
+ifneq ($(KERNELRELEASE),)
+	obj-m := snd_soc_pisound.o
+	snd_soc_pisound-y := pisound.o
+	dtbo-y += pisound.dtbo
+	DTC_FLAGS ?= -@
+	always := $(dtbo-y)
+else
+	KERNELDIR ?= /lib/modules/$(shell uname -r)/build
+	PWD :=$(shell pwd)
+	TARGET_PATH := kernel/sound/soc/rockchip
+	INBOXDRIVER := $(shell find $(subst build,$(TARGET_PATH),$(KERNELDIR)) -name snd_soc_pisound.ko.* -type f)
+#	RULEFILE = 50-usb-realtek-net.rules
+#	RULEDIR = /etc/udev/rules.d/
 
-dtbo-y += pisound.dtbo
-DTC_FLAGS ?= -@
 
-always := $(dtbo-y)
 
-all:
-	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules
+.PHONY: modules
+modules:
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules
 
-install: all
-	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
-	@depmod -a  $(KERNELRELEASE)
-	@cp -v pisound.dtbo /boot/overlays/
+.PHONY: all
+all: clean modules install
 
+.PHONY: clean
 clean:
-	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) clean
+
+.PHONY: install
+install:
+ifneq ($(shell lsmod | grep snd_soc_pisound),)
+	rmmod snd_soc_pisound
+endif
+ifneq ($(INBOXDRIVER),)
+	rm -f $(INBOXDRIVER)
+endif
+	$(MAKE) -C $(KERNELDIR) M=$(PWD) modules_install
+	depmod -a  $(KERNELRELEASE)
+	cp -v pisound.dtbo /boot/overlays/
+	echo " " | sudo tee -a /boot/hw_intfc.conf
+	echo "#pisound Need set: intfc:uart4=off intfc:spi1=on" | sudo tee -a /boot/hw_intfc.conf
+	echo intfc:dtoverlay=pisound | sudo tee -a /boot/hw_intfc.conf
+	sed -i 's/intfc:dtoverlay=spi1-flash/#intfc:dtoverlay=spi1-flash/g' /boot/hw_intfc.conf
+endif
