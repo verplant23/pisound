@@ -24,39 +24,35 @@
 #include <dt-bindings/pinctrl/rockchip.h>
 
 / {
-	compatible = "rockchip,rk3288";
+	compatible = "rockchip,rk3399";
 
 	fragment@0 {
-		target-path = "/sound-simple-card";
+		target-path = "/es8316-sound";
 		__overlay__ {
 			status = "disabled";
 		};
 	};
-
+	
 	fragment@1 {
-		target = <&spi2>;
+		target-path = "/hdmi-codec";
+		__overlay__ {
+			status = "disabled";
+		};
+	};
+	
+
+	fragment@2 {
+		target = <&spi1>;
 		__overlay__ {
 			#address-cells = <1>;
 			#size-cells = <0>;
 			status = "okay";
-			spidev@0 {
-				status="disabled";
-			};
-			spidev@1 {
-				status="okay";
-			};
+
 			pisound_spi: pisound_spi@0{
 				compatible = "blokaslabs,pisound-spi";
 				reg = <0>;
 				spi-max-frequency = <100000>;
 			};
-		};
-	};
-	
-	fragment@2 {
-		target = <&hdmi>;
-		__overlay__ {
-			hdmi-i2s-audio-disable;
 		};
 	};
 
@@ -72,43 +68,52 @@
 	};
 
 	fragment@4 {
-		target = <&pinctrl>;
+		target = <&i2s1>;
 		__overlay__ {
-			pisound_pins: pisound_pins {
-				rockchip,pins =
-					<7 RK_PC6 RK_FUNC_GPIO &pcfg_pull_none>,
-					<7 RK_PB0 RK_FUNC_GPIO &pcfg_pull_none>,
-					<7 RK_PA7 RK_FUNC_GPIO &pcfg_pull_none>,
-					<7 RK_PC7 RK_FUNC_GPIO &pcfg_pull_none>,
-					<5 RK_PB3 RK_FUNC_GPIO &pcfg_pull_none>,
-					<5 RK_PC3 RK_FUNC_GPIO &pcfg_pull_none>,
-					<5 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>;
-			};
+			status = "okay";
+			#sound-dai-cells = <0>;
 		};
 	};
 
 	fragment@5 {
+		target = <&pinctrl>;
+		__overlay__ {
+			pisound_pins: pisound_pins {
+				rockchip,pins =
+				<2 RK_PB4 RK_FUNC_GPIO &pcfg_pull_none>,
+				<4 RK_PD6 RK_FUNC_GPIO &pcfg_pull_none>,
+				<4 RK_PA4 RK_FUNC_GPIO &pcfg_pull_none>,
+				<3 RK_PC0 RK_FUNC_GPIO &pcfg_pull_none>,
+				<4 RK_PD4 RK_FUNC_GPIO &pcfg_pull_none>,
+				<4 RK_PD5 RK_FUNC_GPIO &pcfg_pull_none>,
+				<4 RK_PC2 RK_FUNC_GPIO &pcfg_pull_none>;
+		  	};
+		};
+	};
+
+	fragment@6 {
 		target-path = "/sound-ext-card";
 		__overlay__ {
 			compatible = "blokaslabs,pisound";
-			i2s-controller = <&i2s>;
+			i2s-controller = <&i2s1>;
+			#sound-dai-cells = <0>;
 			status = "okay";
 
 			pinctrl-names = "default";
 			pinctrl-0 = <&pisound_pins>;
 
 			osr-gpios =
-				<&gpio7 RK_PC6 GPIO_ACTIVE_HIGH>, // GP7C6
-				<&gpio7 RK_PB0 GPIO_ACTIVE_HIGH>, // GP7B0
-				<&gpio7 RK_PA7 GPIO_ACTIVE_HIGH>; // GP7A7
+				<&gpio2 RK_PB4 GPIO_ACTIVE_HIGH>,
+				<&gpio4 RK_PD6 GPIO_ACTIVE_HIGH>,
+				<&gpio4 RK_PA4 GPIO_ACTIVE_HIGH>;
 
 			reset-gpios =
-				<&gpio7 RK_PC7 GPIO_ACTIVE_HIGH>, // GP7C7
-				<&gpio5 RK_PB3 GPIO_ACTIVE_HIGH>; // GP5B3
+				<&gpio3 RK_PC0 GPIO_ACTIVE_HIGH>, 
+				<&gpio4 RK_PD4 GPIO_ACTIVE_HIGH>;
 
-			data_available-gpios = <&gpio5 RK_PC3 GPIO_ACTIVE_HIGH>; // GP5C3
+			data_available-gpios = <&gpio4 RK_PD5 GPIO_ACTIVE_HIGH>;
 
-			button-gpios = <&gpio5 RK_PB4 GPIO_ACTIVE_LOW>; // GP5B4
+			button-gpios = <&gpio4 RK_PC2 GPIO_ACTIVE_LOW>;
 		};
 	};
 };
